@@ -1,0 +1,13 @@
+accounts:
+  - name: account_one
+    account_id: 123456789
+    allocations:
+      - symbol: TICKER_ONE
+        exchange: ARCA
+        percent: 30
+      - symbol: TICKER_TWO
+        exchange: NASDAQ
+        percent: 40
+      - symbol: TICKER_THREE
+        exchange: ARCA
+        percent: 30

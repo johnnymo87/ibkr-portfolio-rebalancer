@@ -1,0 +1,8 @@
+# Your account info and allocations.
+config.yaml
+
+# Your credentials for Interactive Brokers.
+credentials.list
+
+# Byte-compiled / optimized / DLL files.
+__pycache__/
