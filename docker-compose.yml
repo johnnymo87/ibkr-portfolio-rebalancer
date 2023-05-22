@@ -3,7 +3,7 @@ version: "3"
 services:
   # For more, see https://github.com/voyz/ibeam.
   authentication_gateway:
-    image: voyz/ibeam
+    image: voyz/ibeam:0.4.3
     container_name: ibeam
     env_file:
       - credentials.list
