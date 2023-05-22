@@ -257,32 +257,47 @@ class PortfolioRebalancer:
         else:
             print("Executing real trades now!")
 
-        responses = []
+        order_responses = []
         orders = sell_trades + buy_trades
         for order in orders:
-            response = requests.post(
+            order_response = requests.post(
                 f"{self.url}iserver/account/{self.account_id}/orders",
                 json={"orders": [order]},
                 verify=self.ssl,
             )
-            if response.ok:
+            if order_response.ok:
                 print(
                     f"Successfully submitted order: {self.prettify_order_message(order)}"
                 )
-                for response in response.json():
-                    print(response)
-                    responses.append(response)
+                print(order_response.json())
+                order_responses.append(order_response.json())
             else:
-                import pdb
-
-                pdb.set_trace()
+                status_code = order_response.status_code
+                error_text = order_response.text
                 raise ValueError(
-                    f"Failed to submit order: {self.prettify_order_message(order)} {response.text}"
+                    f"Failed to confirm order: {self.prettify_order_message(order)} status_code={status_code}, error_text={error_text}"
                 )
 
         user_input = input("Confirm all trades (yes/no): ")
         if user_input.lower() == "yes":
-            for response in responses:
-                self.api.reply_yes(response["id"])
+            for (order_response, order) in zip(order_responses, orders):
+                order_message_id = order_response[0]["id"]
+                confirm_response = requests.post(
+                    f"{self.url}iserver/reply/{order_message_id}",
+                    json={"confirmed": True},
+                    verify=self.ssl,
+                )
+                if confirm_response.ok:
+                    print(
+                        f"Successfully confirmed order: {self.prettify_order_message(order)}"
+                    )
+                    print(confirm_response.json())
+                else:
+                    status_code = confirm_response.status_code
+                    error_text = confirm_response.text
+                    raise ValueError(
+                        f"Failed to confirm order: {self.prettify_order_message(order)} status_code={status_code}, error_text={error_text}"
+                    )
+
         else:
             print("Aborting trades.")
