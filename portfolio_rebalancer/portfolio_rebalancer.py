@@ -115,11 +115,13 @@ class PortfolioRebalancer:
         # Strip out all non-numeric characters. Because I found a ticker that
         # returned `C119.7` instead of `119.7` for this particular field.
         # https://stackoverflow.com/a/1450913/2197402
-        last_price = ''.join(i for i in last_price if i.isdigit() or i in '-./\\')
+        last_price = "".join(i for i in last_price if i.isdigit() or i in "-./\\")
         last_price = self.to_decimal(last_price)
         bid = self.to_decimal(bid)
         ask = self.to_decimal(ask)
-        print(f"Found pricing info for {position['symbol']}: bid={bid}, ask={ask}, last_price={last_price}")
+        print(
+            f"Found pricing info for {position['symbol']}: bid={bid}, ask={ask}, last_price={last_price}"
+        )
 
         self.prices[identifier] = {"last_price": last_price, "bid": bid, "ask": ask}
 
@@ -280,7 +282,7 @@ class PortfolioRebalancer:
 
         user_input = input("Confirm all trades (yes/no): ")
         if user_input.lower() == "yes":
-            for (order_response, order) in zip(order_responses, orders):
+            for order_response, order in zip(order_responses, orders):
                 order_message_id = order_response[0]["id"]
                 confirm_response = requests.post(
                     f"{self.url}iserver/reply/{order_message_id}",
