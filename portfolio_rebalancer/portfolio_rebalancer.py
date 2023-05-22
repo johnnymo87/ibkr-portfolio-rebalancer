@@ -42,7 +42,7 @@ class PortfolioRebalancer:
 
         # Fetch the bid/ask spreads for each allocation.
         for allocation in allocations:
-            allocation |= self.get_bid_ask_spread(allocation)
+            allocation |= self.get_pricing_info(allocation)
 
         return allocations
 
@@ -59,15 +59,15 @@ class PortfolioRebalancer:
                 "quantity": self.to_decimal(position["position"]),
                 "exchange": position["listingExchange"],
             }
-            position |= self.get_bid_ask_spread(position)
+            position |= self.get_pricing_info(position)
             positions.append(position)
 
         return positions
 
     # Calls the "Market Data Snapshot (Beta)" endpoint.
     # https://www.interactivebrokers.com/api/doc.html#tag/Market-Data/paths/~1md~1snapshot/get
-    def get_bid_ask_spread(
-        self, position: dict[str, str], retries=3
+    def get_pricing_info(
+        self, position: dict[str, str], retries=10
     ) -> dict[str, Decimal]:
         identifier = f"{position['conid']}@{position['exchange']}:CS"
         if identifier in self.prices:
@@ -90,7 +90,7 @@ class PortfolioRebalancer:
         if not response:
             if retries > 0:
                 print(f"Retrying {position['symbol']} because response was empty")
-                return self.get_bid_ask_spread(position, retries - 1)
+                return self.get_pricing_info(position, retries - 1)
             else:
                 raise ValueError(
                     f"Unable to find bid/ask spread for {position['symbol']}"
@@ -103,15 +103,23 @@ class PortfolioRebalancer:
                 print(
                     f"Retrying {position['symbol']} because response was incomplete: {response}"
                 )
-                return self.get_bid_ask_spread(position, retries - 1)
+                return self.get_pricing_info(position, retries - 1)
             else:
                 raise ValueError(
                     f"Unable to find bid/ask spread for {position['symbol']}"
                 )
 
-        last_price = self.to_decimal(response[last_price])
-        bid = self.to_decimal(response[bid])
-        ask = self.to_decimal(response[ask])
+        last_price = response[last_price]
+        bid = response[bid]
+        ask = response[ask]
+        # Strip out all non-numeric characters. Because I found a ticker that
+        # returned `C119.7` instead of `119.7` for this particular field.
+        # https://stackoverflow.com/a/1450913/2197402
+        last_price = ''.join(i for i in last_price if i.isdigit() or i in '-./\\')
+        last_price = self.to_decimal(last_price)
+        bid = self.to_decimal(bid)
+        ask = self.to_decimal(ask)
+        print(f"Found pricing info for {position['symbol']}: bid={bid}, ask={ask}, last_price={last_price}")
 
         self.prices[identifier] = {"last_price": last_price, "bid": bid, "ask": ask}
 
