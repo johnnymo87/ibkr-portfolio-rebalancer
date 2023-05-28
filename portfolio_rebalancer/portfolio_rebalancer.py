@@ -69,6 +69,9 @@ class PortfolioRebalancer:
     def get_pricing_info(
         self, position: dict[str, str], retries=10
     ) -> dict[str, Decimal]:
+        if retries <= 0:
+            raise ValueError(f"Unable to find bid/ask spread for {position['symbol']}")
+
         identifier = f"{position['conid']}@{position['exchange']}:CS"
         if identifier in self.prices:
             return self.prices[identifier]
@@ -88,30 +91,33 @@ class PortfolioRebalancer:
 
         response = response.json()
         if not response:
-            if retries > 0:
-                print(f"Retrying {position['symbol']} because response was empty")
-                return self.get_pricing_info(position, retries - 1)
-            else:
-                raise ValueError(
-                    f"Unable to find bid/ask spread for {position['symbol']}"
-                )
+            print(f"Retrying {position['symbol']} because response was empty")
+            return self.get_pricing_info(position, retries - 1)
 
         response = response[0]
 
-        if last_price not in response or bid not in response or ask not in response:
-            if retries > 0:
-                print(
-                    f"Retrying {position['symbol']} because response was incomplete: {response}"
-                )
-                return self.get_pricing_info(position, retries - 1)
-            else:
-                raise ValueError(
-                    f"Unable to find bid/ask spread for {position['symbol']}"
-                )
+        required_keys = [last_price, bid, ask]
+        key_names = {last_price: "last price", bid: "bid", ask: "ask"}
+
+        missing_or_invalid_keys = [
+            key for key in required_keys if key not in response or not response[key]
+        ]
+
+        if missing_or_invalid_keys:
+            missing_or_invalid_keys_str = ", ".join(
+                f"{key} ({key_names[key]})" for key in missing_or_invalid_keys
+            )
+            print(
+                f"Retrying {position['symbol']} because response was incomplete: {response}. Missing or invalid keys: {missing_or_invalid_keys_str}"
+            )
+            return self.get_pricing_info(position, retries - 1)
 
         last_price = response[last_price]
         bid = response[bid]
         ask = response[ask]
+        print(
+            f"Found pricing info for {position['symbol']}: bid={bid}, ask={ask}, last_price={last_price}"
+        )
         # Strip out all non-numeric characters. Because I found a ticker that
         # returned `C119.7` instead of `119.7` for this particular field.
         # https://stackoverflow.com/a/1450913/2197402
@@ -119,9 +125,6 @@ class PortfolioRebalancer:
         last_price = self.to_decimal(last_price)
         bid = self.to_decimal(bid)
         ask = self.to_decimal(ask)
-        print(
-            f"Found pricing info for {position['symbol']}: bid={bid}, ask={ask}, last_price={last_price}"
-        )
 
         self.prices[identifier] = {"last_price": last_price, "bid": bid, "ask": ask}
 
