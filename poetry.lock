@@ -143,22 +143,6 @@ files = [
 ]
 
 [[package]]
-name = "easyib"
-version = "0.2.5"
-description = "Python wrapper for Interactive Brokers Client Portal Web API"
-category = "main"
-optional = false
-python-versions = ">=3.6"
-files = [
-    {file = "easyib-0.2.5-py3-none-any.whl", hash = "sha256:d24101ecef4acf8fb1c48cc19c17103450bace1eb96a6721b968af8c34e5ed0c"},
-    {file = "easyib-0.2.5.tar.gz", hash = "sha256:2e0e831d0f556af8044d6a46c33a7bdcb869692201ae939d070922e534796fa4"},
-]
-
-[package.dependencies]
-requests = "*"
-urllib3 = "*"
-
-[[package]]
 name = "filelock"
 version = "3.12.0"
 description = "A platform independent file lock."
@@ -495,4 +479,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.3)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "521321b24a64c0daa23870667a339934fee4ad9e4c940fb311908b47e9b23e77"
+content-hash = "300740218be377dd28b65dab6c5da46f0ee055308c85db12e535a82ae5283f6a"

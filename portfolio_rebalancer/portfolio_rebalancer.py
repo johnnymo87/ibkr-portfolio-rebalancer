@@ -1,33 +1,21 @@
 from decimal import Decimal
 
-import easyib
-import requests
+from portfolio_rebalancer.decimal_utils import to_decimal, to_truncated_decimal
 
 
 class PortfolioRebalancer:
-    def __init__(
-        self,
-        account_id,
-        allocations,
-        dry_run=True,
-        url="https://localhost:5000",
-        ssl=False,
-    ):
-        self.api = easyib.REST()
+    def __init__(self, account_id, allocations, api, dry_run=True):
         self.account_id = account_id
         self.allocations = allocations
-        self.conids = {}
-        self.prices = {}
+        self.api = api
         self.dry_run = dry_run
-        self.url = f"{url}/v1/api/"
-        self.ssl = ssl
 
     def prepared_allocations(self):
         allocations = self.allocations.copy()
 
         # Cast the percent of each allocation to a Decimal.
         for allocation in allocations:
-            allocation["percent"] = self.to_decimal(allocation["percent"])
+            allocation["percent"] = to_decimal(allocation["percent"])
 
         # Assert that the sum of allocation percents is 100.
         sum_of_allocations = sum(a["percent"] for a in allocations)
@@ -36,117 +24,15 @@ class PortfolioRebalancer:
 
         # Fetch the conids for each allocation.
         for allocation in allocations:
-            allocation["conid"] = self.get_conid(
+            allocation["conid"] = self.api.get_conid(
                 allocation["symbol"], allocation["exchange"]
             )
 
         # Fetch the bid/ask spreads for each allocation.
         for allocation in allocations:
-            allocation |= self.get_pricing_info(allocation)
+            allocation |= self.api.get_pricing_info(allocation)
 
         return allocations
-
-    # The EasyIB method is too limited, so I'm using the ibkr API directly.
-    def get_portfolio(self):
-        response = requests.get(
-            f"{self.url}portfolio/{self.account_id}/positions/0", verify=self.ssl
-        )
-        positions = []
-        for position in response.json():
-            position = {
-                "conid": position["conid"],
-                "symbol": position["contractDesc"],
-                "quantity": self.to_decimal(position["position"]),
-                "exchange": position["listingExchange"],
-            }
-            position |= self.get_pricing_info(position)
-            positions.append(position)
-
-        return positions
-
-    # Calls the "Market Data Snapshot (Beta)" endpoint.
-    # https://www.interactivebrokers.com/api/doc.html#tag/Market-Data/paths/~1md~1snapshot/get
-    def get_pricing_info(
-        self, position: dict[str, str], retries=10
-    ) -> dict[str, Decimal]:
-        if retries <= 0:
-            raise ValueError(f"Unable to find bid/ask spread for {position['symbol']}")
-
-        identifier = f"{position['conid']}@{position['exchange']}:CS"
-        if identifier in self.prices:
-            return self.prices[identifier]
-
-        # https://gist.github.com/theloniusmunch/9b14d320fd1c3aca550fc8d54c446ce0
-        last_price = "31"
-        bid = "84"
-        ask = "86"
-        params = {"conids": identifier, "fields": f"{last_price},{bid},{ask}"}
-        response = requests.get(
-            f"{self.url}md/snapshot", params=params, verify=self.ssl
-        )
-        if not response.ok:
-            raise ValueError(
-                f"Unable to find bid/ask spread for {position['symbol']} because {response.json()}"
-            )
-
-        response = response.json()
-        if not response:
-            print(f"Retrying {position['symbol']} because response was empty")
-            return self.get_pricing_info(position, retries - 1)
-
-        response = response[0]
-
-        required_keys = [last_price, bid, ask]
-        key_names = {last_price: "last price", bid: "bid", ask: "ask"}
-
-        missing_or_invalid_keys = [
-            key for key in required_keys if key not in response or not response[key]
-        ]
-
-        if missing_or_invalid_keys:
-            missing_or_invalid_keys_str = ", ".join(
-                f"{key} ({key_names[key]})" for key in missing_or_invalid_keys
-            )
-            print(
-                f"Retrying {position['symbol']} because response was incomplete: {response}. Missing or invalid keys: {missing_or_invalid_keys_str}"
-            )
-            return self.get_pricing_info(position, retries - 1)
-
-        last_price = response[last_price]
-        bid = response[bid]
-        ask = response[ask]
-        print(
-            f"Found pricing info for {position['symbol']}: bid={bid}, ask={ask}, last_price={last_price}"
-        )
-        # Strip out all non-numeric characters. Because I found a ticker that
-        # returned `C119.7` instead of `119.7` for this particular field.
-        # https://stackoverflow.com/a/1450913/2197402
-        last_price = "".join(i for i in last_price if i.isdigit() or i in "-./\\")
-        last_price = self.to_decimal(last_price)
-        bid = self.to_decimal(bid)
-        ask = self.to_decimal(ask)
-
-        self.prices[identifier] = {"last_price": last_price, "bid": bid, "ask": ask}
-
-        return self.prices[identifier]
-
-    def to_decimal(self, number):
-        return Decimal(str(number))
-
-    # Truncates a number to two decimal places in addition to casting it to a Decimal.
-    def to_truncated_decimal(self, number):
-        return int(Decimal(str(number)) * 100) / Decimal(100)
-
-    def get_conid(self, symbol, exchange):
-        if symbol in self.conids:
-            return self.conids[symbol]
-
-        try:
-            conid = self.api.get_conid(symbol, contract_filters={"exchange": exchange})
-            self.conids[symbol] = conid
-            return self.conids[symbol]
-        except IndexError:
-            raise ValueError(f"Unable to find conid for {symbol} on {exchange}")
 
     # TODO: Figure out how to give the `quantity` arument a `decimal` type.
     def to_order_message(
@@ -178,13 +64,12 @@ class PortfolioRebalancer:
         return f"{o['side']} {o['quantity']} of {o['ticker']} @ {o['price']}"
 
     def run(self):
-        self.api.get_accounts()
         self.api.switch_account(self.account_id)
 
-        net_value = self.to_decimal(self.api.get_netvalue())
+        net_value = self.api.get_netvalue()
         print(f"Net portfolio value: {net_value}")
 
-        portfolio = self.get_portfolio()
+        portfolio = self.api.get_portfolio()
         print(f"Current portfolio: {portfolio}")
 
         allocations = self.prepared_allocations()
@@ -218,14 +103,14 @@ class PortfolioRebalancer:
             )
             current_value = last_price * current_quantity
             # Truncate current percent to 2 decimal places.
-            current_percent = self.to_truncated_decimal(current_value / net_value * 100)
+            current_percent = to_truncated_decimal(current_value / net_value * 100)
             target_percent = allocation["percent"]
             print(
                 f"{symbol}: Current Percent = {current_percent}%, Target Percent = {target_percent}%"
             )
 
             target_quantity = net_value * target_percent / 100 / last_price
-            quantity_different = self.to_truncated_decimal(
+            quantity_different = to_truncated_decimal(
                 abs(target_quantity - current_quantity)
             )
             print(f"{symbol}: Current Quantity = {current_quantity}")
@@ -250,21 +135,15 @@ class PortfolioRebalancer:
         for buy_trade in buy_trades:
             print(self.prettify_order_message(buy_trade))
 
-        submit_order_url = f"{self.url}iserver/account/{self.account_id}/orders"
         if self.dry_run:
             print('Dry run mode, executing "whatif" trades instead of real trades.')
-            submit_order_url += "/whatif"
         else:
             print("Executing real trades now!")
 
         order_responses = []
         orders = sell_trades + buy_trades
         for order in orders:
-            order_response = requests.post(
-                f"{self.url}iserver/account/{self.account_id}/orders",
-                json={"orders": [order]},
-                verify=self.ssl,
-            )
+            order_response = self.api.submit_order(order, self.dry_run)
             if order_response.ok:
                 print(
                     f"Successfully submitted order: {self.prettify_order_message(order)}"
@@ -282,11 +161,7 @@ class PortfolioRebalancer:
         if user_input.lower() == "yes":
             for order_response, order in zip(order_responses, orders):
                 order_message_id = order_response[0]["id"]
-                confirm_response = requests.post(
-                    f"{self.url}iserver/reply/{order_message_id}",
-                    json={"confirmed": True},
-                    verify=self.ssl,
-                )
+                confirm_response = self.api.confirm_order(order_message_id)
                 if confirm_response.ok:
                     print(
                         f"Successfully confirmed order: {self.prettify_order_message(order)}"

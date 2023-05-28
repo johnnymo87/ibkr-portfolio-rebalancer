@@ -34,14 +34,9 @@ This application assumes a gateway session is active and authenticated. Read htt
    ```
    curl -sSL https://install.python-poetry.org | python -
    ```
-1. Install or update direnv.
+1. Copy `config.yaml.sample` to `config.yaml`.
    ```
-   brew update && brew install direnv
-   brew update && brew upgrade direnv
-   ```
-1. Copy `.config.yaml.sample` to `.config.yaml`.
-   ```
-   cp .config.yaml.sample .config.yaml
+   cp config.yaml.sample config.yaml
    ```
 1. Fill out the `.config.yaml` with your Interactive Broker account id(s) and desired allocations.
 1. Copy `credentials.list.sample` to `credentials.list`.
