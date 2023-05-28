@@ -177,11 +177,6 @@ class PortfolioRebalancer:
     def prettify_order_message(self, o: dict[str, str]) -> str:
         return f"{o['side']} {o['quantity']} of {o['ticker']} @ {o['price']}"
 
-    # def submit_orders(self, order_messages: list[dict[str, any]]) -> None:
-    #     response = requests.post(f"{self.url}iserver/account/{self.account_id}/orders", json={"orders": order_messages}, verify=self.ssl)
-    #     import pdb; pdb.set_trace()
-    #     return response
-
     def run(self):
         self.api.get_accounts()
         self.api.switch_account(self.account_id)
