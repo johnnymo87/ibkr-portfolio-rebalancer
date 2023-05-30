@@ -18,7 +18,7 @@ class PortfolioRebalancer:
             allocation["percent"] = to_decimal(allocation["percent"])
 
         # Assert that the sum of allocation percents is 100.
-        sum_of_allocations = sum(a["percent"] for a in allocations)
+        sum_of_allocations = sum(abs(a["percent"]) for a in allocations)
         if not sum_of_allocations == 100:
             raise ValueError(f"Allocations do not sum to 100: {sum_of_allocations}")
 
