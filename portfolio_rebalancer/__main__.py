@@ -15,7 +15,11 @@ execute = "--execute" in sys.argv
 # If --execute is not passed, then we are in dry-run mode.
 dry_run = not execute
 
-url = config["client_portal_url"]
+har_log = "--har-log" in sys.argv
+if har_log:
+    url = config["har_logging_proxy_url"]
+else:
+    url = config["client_portal_url"]
 
 for accounts in config["accounts"]:
     account_id = accounts["account_id"]

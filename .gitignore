@@ -4,5 +4,8 @@ config.yaml
 # Your credentials for Interactive Brokers.
 credentials.list
 
+# Your HAR dump file, if HAR logging is enabled.
+har_logging_proxy/dump.har
+
 # Byte-compiled / optimized / DLL files.
 __pycache__/

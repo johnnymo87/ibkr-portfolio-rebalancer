@@ -12,6 +12,7 @@ The application is designed for my specific use-case, and may not be well-fit to
 * Calculate buy and sell orders to achieve desired asset allocation.
 * Display rebalance orders.
 * Execute rebalance orders.
+* Can log a [HAR file](http://www.softwareishard.com/blog/har-12-spec/) for sharing with Interactive Brokers support.
 
 ## API Targetted
 This application talks to the Interactive Brokers Client Portal API. For more, see [their documentation](https://www.interactivebrokers.com/api/doc.html) of it.
@@ -67,6 +68,24 @@ This application assumes a gateway session is active and authenticated. Read htt
   ```
   poetry run pre-commit run --all-files
   ```
+
+## HAR Logging
+
+If you need to open a ticket with Interactive Brokers support, they will ask for your HAR logs. This is not as straightforward as their documentation suggests because HAR logs come from browsers and we and running headlessly.
+
+In order to do HAR logging, follow these steps:
+1. [Install `mitmproxy`](https://docs.mitmproxy.org/stable/overview-installation/).
+1. In a separate terminal, run the HAR logging proxy.
+   ```
+   cd har_logging_proxy
+   rm dump.har; ./run
+   ```
+1. When running the app, include the `--har-log` flag.
+   ```
+   poetry run python -m portfolio_rebalancer --har-log
+   ```
+
+The HAR log will be at `har_logging_proxy/dump.har`.
 
 ## Add a new python package
 This app makes use of [`poetry`](https://python-poetry.org/) to manage packages. See docs there for how to add packages.

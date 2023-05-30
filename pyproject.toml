@@ -9,6 +9,7 @@ packages = [{include = "portfolio_rebalancer"}]
 [tool.poetry.dependencies]
 python = "^3.11"
 requests = "^2.29.0"
+mitmproxy = "^9.0.1"
 
 
 [tool.poetry.group.dev.dependencies]
