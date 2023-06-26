@@ -195,6 +195,19 @@ class Api:
     def get_pricing_info(
         self, position: dict[str, str], retries=10
     ) -> dict[str, Decimal]:
+        """Returns pricing info of the given position with the following keys:
+        - bid: Bid price
+        - ask: Ask price
+        - last_price: Last price
+
+        :param position: Position to get pricing info for
+        :type position: dict
+        :param retries: Number of retries to get pricing info, defaults to 10
+        :type retries: int, optional
+
+        :return: Pricing info
+        :rtype: dict
+        """
         if retries <= 0:
             raise ValueError(f"Unable to find bid/ask spread for {position['symbol']}")
 
