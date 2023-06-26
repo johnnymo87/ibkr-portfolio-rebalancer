@@ -79,25 +79,6 @@ class Api:
                     f"Error switching account: [{response.status_code}] {response.text}"
                 )
 
-    def get_netvalue(self) -> Decimal:
-        """Returns net value of the selected account
-
-        :return: Net value in USD
-        :rtype: decimal
-        """
-        response = requests.get(
-            f"{self.url}portfolio/{self.account_id()}/ledger", verify=self.ssl
-        )
-        response.raise_for_status()
-
-        json = response.json()
-        if "USD" not in json or type(json["USD"]) is not dict:
-            raise ValueError(f"Error getting net value: {json}")
-        if "netliquidationvalue" not in json["USD"]:
-            raise ValueError(f"Error getting net value: {json}")
-
-        return to_decimal(json["USD"]["netliquidationvalue"])
-
     def _get_conid(
         self,
         symbol: str,

@@ -80,11 +80,13 @@ class PortfolioRebalancer:
     def run(self):
         self.api.switch_account(self.account_id)
 
-        net_value = self.api.get_netvalue()
-        print(f"Net portfolio value: {net_value}")
-
         portfolio = self.api.get_portfolio()
         print(f"Current portfolio: {portfolio}")
+
+        net_value = Decimal(0)
+        for p in portfolio:
+            net_value += p["ask"] * p["quantity"]
+        print(f"Net portfolio value: {net_value}")
 
         allocations = self.prepared_allocations()
 
