@@ -10,7 +10,21 @@ class PortfolioRebalancer:
         self.api = api
         self.dry_run = dry_run
 
-    def prepared_allocations(self):
+    def prepared_allocations(self) -> list[dict[str, any]]:
+        """Prepare the allocations for rebalancing by fetching the conids and
+        pricing info for each allocation. Each dictionary has the following
+        keys:
+        - symbol: Ticker symbol
+        - exchange: Exchange where the position is listed
+        - percent: Percent of the portfolio to allocate to this position
+        - conid: Contract ID
+        - bid: Bid price
+        - ask: Ask price
+        - last_price: Last price
+
+        :return: Prepared allocations
+        :rtype: list[dict[str, any]]
+        """
         allocations = self.allocations.copy()
 
         # Cast the percent of each allocation to a Decimal.
