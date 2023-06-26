@@ -167,7 +167,14 @@ class Api:
             raise ValueError(f"Unable to find conid for {symbol} on {exchange}")
 
     def get_portfolio(self) -> dict:
-        """Returns portfolio of the selected account
+        """Returns portfolio of the selected account with the following keys:
+        - conid: Contract ID
+        - symbol: Symbol of the stock instrument
+        - quantity: Quantity of the stock instrument
+        - exchange: Exchange of the stock instrument
+        - bid: Bid price
+        - ask: Ask price
+        - last_price: Last price
 
         :return: Portfolio
         :rtype: dict
