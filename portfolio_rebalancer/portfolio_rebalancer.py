@@ -93,10 +93,6 @@ class PortfolioRebalancer:
         sell_trades = []
         buy_trades = []
 
-        # portfolio_symbols = {p["symbol"] for p in portfolio}
-        # allocation_symbols = {a["symbol"] for a in self.allocations}
-        # prices = self.get_prices(portfolio_symbols | allocation_symbols)
-
         # Calculate the rebalancing trades
 
         # First, sell all positions that are not in the target allocations.
