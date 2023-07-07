@@ -77,16 +77,79 @@ class PortfolioRebalancer:
     def prettify_order_message(self, o: dict[str, str]) -> str:
         return f"{o['side']} {o['quantity']} of {o['ticker']} @ {o['price']}"
 
-    def run(self):
-        self.api.switch_account(self.account_id)
+    def process_order(self, order):
+        """Process an order by submitting it to the API and waiting for it to
+        fill.
 
-        portfolio = self.api.get_portfolio()
-        print(f"Current portfolio: {portfolio}")
+        :param order: Order message
+        :type order: dict[str, str]
+        """
+        order_response = self.api.submit_order(order, self.dry_run)
+        if order_response.ok:
+            print(
+                f"Successfully submitted order: {self.prettify_order_message(order)}"
+            )
+            print(order_response.json())
+        else:
+            status_code = order_response.status_code
+            error_text = order_response.text
+            raise ValueError(
+                f"Failed to confirm order: {self.prettify_order_message(order)} status_code={status_code}, error_text={error_text}"
+            )
 
+        order_id = order_response.json()["id"]
+        confirm_response = self.api.confirm_order(order_id)
+        if confirm_response.ok:
+            print(
+                f"Successfully confirmed order: {self.prettify_order_message(order)}"
+            )
+            print(confirm_response.json())
+        else:
+            status_code = confirm_response.status_code
+            error_text = confirm_response.text
+            raise ValueError(
+                f"Failed to confirm order: {self.prettify_order_message(order)} status_code={status_code}, error_text={error_text}"
+            )
+
+        while True:
+            time.sleep(5)  # Wait for 5 seconds before checking the order status
+            order_status = self.api.get_order_status(order_id)
+
+            if order_status["order_status"] == "Filled":
+                break
+
+            # Update pricing info and check if the bid/ask spread has changed
+            position = self.api.get_pricing_info(order)
+            new_price = position["ask"] if order["side"] == "SELL" else position["bid"]
+
+            if new_price != order["price"]:
+                self.api.modify_order_price(order_id, new_price)
+                order["price"] = new_price
+
+    def calculate_net_value(self, portfolio) -> Decimal:
+        """Calculate the net value of the portfolio.
+
+        :param portfolio: Portfolio
+        :type portfolio: list[dict[str, any]]
+        :return: Net value of the portfolio
+        :rtype: Decimal
+        """
         net_value = Decimal(0)
         for p in portfolio:
             net_value += p["ask"] * p["quantity"]
         print(f"Net portfolio value: {net_value}")
+        return net_value
+
+    def calculate_trades(self) -> tuple[list[dict[str, any]], list[dict[str, any]]]:
+        """Calculate the trades to make to rebalance the portfolio.
+
+        :return: Tuple of sell trades and buy trades
+        :rtype: tuple[list[dict[str, any]], list[dict[str, any]]]
+        """
+        portfolio = self.api.get_portfolio()
+        print(f"Current portfolio: {portfolio}")
+
+        net_value = self.calculate_net_value(portfolio)
 
         allocations = self.prepared_allocations()
 
@@ -138,7 +201,17 @@ class PortfolioRebalancer:
             else:
                 print(f"{symbol}: No trades necessary.")
 
-        # Execute the rebalancing trades.
+        # Sort sell_trades and buy_trades by value (largest to smallest)
+        sell_trades.sort(key=lambda x: x["quantity"] * x["price"], reverse=True)
+        buy_trades.sort(key=lambda x: x["quantity"] * x["price"], reverse=True)
+
+        return sell_trades, buy_trades
+
+    def run(self):
+        self.api.switch_account(self.account_id)
+
+        # Calculate the rebalancing trades.
+        sell_trades, buy_trades = self.calculate_trades()
 
         print("Sell trades:")
         for sell_trade in sell_trades:
@@ -147,44 +220,19 @@ class PortfolioRebalancer:
         for buy_trade in buy_trades:
             print(self.prettify_order_message(buy_trade))
 
+        # Execute the rebalancing trades.
         if self.dry_run:
             print('Dry run mode, executing "whatif" trades instead of real trades.')
         else:
             print("Executing real trades now!")
 
-        order_responses = []
-        orders = sell_trades + buy_trades
-        for order in orders:
-            order_response = self.api.submit_order(order, self.dry_run)
-            if order_response.ok:
-                print(
-                    f"Successfully submitted order: {self.prettify_order_message(order)}"
-                )
-                print(order_response.json())
-                order_responses.append(order_response.json())
-            else:
-                status_code = order_response.status_code
-                error_text = order_response.text
-                raise ValueError(
-                    f"Failed to confirm order: {self.prettify_order_message(order)} status_code={status_code}, error_text={error_text}"
-                )
+        # Process sell orders first
+        for sell_trade in sell_trades:
+            self.process_order(sell_trade)
 
-        user_input = input("Confirm all trades (yes/no): ")
-        if user_input.lower() == "yes":
-            for order_response, order in zip(order_responses, orders):
-                order_message_id = order_response[0]["id"]
-                confirm_response = self.api.confirm_order(order_message_id)
-                if confirm_response.ok:
-                    print(
-                        f"Successfully confirmed order: {self.prettify_order_message(order)}"
-                    )
-                    print(confirm_response.json())
-                else:
-                    status_code = confirm_response.status_code
-                    error_text = confirm_response.text
-                    raise ValueError(
-                        f"Failed to confirm order: {self.prettify_order_message(order)} status_code={status_code}, error_text={error_text}"
-                    )
+        # Recalculate buy trades
+        _, buy_trades = self.calculate_trades()
 
-        else:
-            print("Aborting trades.")
+        # Process buy trades
+        for buy_trade in buy_trades:
+            self.process_order(buy_trade)
