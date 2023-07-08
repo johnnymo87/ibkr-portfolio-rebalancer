@@ -4,10 +4,11 @@ from portfolio_rebalancer.decimal_utils import to_decimal, to_truncated_decimal
 
 
 class PortfolioRebalancer:
-    def __init__(self, account_id, allocations, api, dry_run=True):
+    def __init__(self, account_id, allocations, api, portfolio_cap, dry_run=True):
         self.account_id = account_id
         self.allocations = allocations
         self.api = api
+        self.portfolio_cap = portfolio_cap
         self.dry_run = dry_run
 
     def prepared_allocations(self) -> list[dict[str, any]]:
@@ -138,7 +139,10 @@ class PortfolioRebalancer:
         for p in portfolio:
             net_value += p["ask"] * p["quantity"]
         print(f"Net portfolio value: {net_value}")
-        return net_value
+        capped_net_value = portfolio_cap.cap(net_value)
+        if capped_net_value != net_value:
+            print(f"Capped Net portfolio value: {net_value}")
+        return capped_net_value
 
     def calculate_trades(self) -> tuple[list[dict[str, any]], list[dict[str, any]]]:
         """Calculate the trades to make to rebalance the portfolio.

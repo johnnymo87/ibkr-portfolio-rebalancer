@@ -3,6 +3,7 @@ har_logging_proxy_url: http://localhost:8080
 accounts:
   - name: account_one
     account_id: 123456789
+    portfolio_cap: $1000
     allocations:
       - symbol: TICKER_ONE
         exchange: ARCA

@@ -24,6 +24,8 @@ else:
 for accounts in config["accounts"]:
     account_id = accounts["account_id"]
     print(f"Rebalancing account: {accounts['name']}")
+    portfolio_cap = PortfolioCap(accounts.get("portfolio_cap"))
+    print(f"Portfolio Cap: {portfolio_cap}")
     allocations = accounts["allocations"]
     print(f"Target allocations: {allocations}")
     api = Api(url=url)
